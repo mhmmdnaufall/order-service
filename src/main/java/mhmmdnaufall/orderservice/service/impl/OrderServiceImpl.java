@@ -23,7 +23,7 @@ public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
 
-    private final RestClient restClient;
+    private final RestClient.Builder restClientBuilder;
 
     @Transactional
     @Override
@@ -44,7 +44,7 @@ public class OrderServiceImpl implements OrderService {
                 .toList();
 
         // Call Inventory Service, and place order if product is in stock
-        final var inventoryResponseArray = restClient.get()
+        final var inventoryResponseArray = restClientBuilder.build().get()
                 .uri(
                         "http://inventory-service/api/inventory",
                         uriBuilder -> uriBuilder.queryParam("skuCode", skuCodes).build()
