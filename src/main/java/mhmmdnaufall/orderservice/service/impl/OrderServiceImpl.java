@@ -13,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 
 import java.util.Arrays;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -52,11 +51,17 @@ public class OrderServiceImpl implements OrderService {
                 .retrieve()
                 .body(InventoryResponse[].class);
 
-        final var allProductsInStock = Arrays.stream(Objects.requireNonNull(inventoryResponseArray))
-                .allMatch(InventoryResponse::isInStock);
+        if (inventoryResponseArray != null && inventoryResponseArray.length > 0) {
+            final var allProductsInStock = Arrays.stream(inventoryResponseArray)
+                    .allMatch(InventoryResponse::isInStock);
 
-        if (allProductsInStock) orderRepository.save(order);
-        else throw new IllegalArgumentException("Product is not in stock, please try again later");
+            if (allProductsInStock) {
+                orderRepository.save(order);
+                return;
+            }
+        }
+
+        throw new IllegalArgumentException("Product is not in stock, please try again later");
 
     }
 
