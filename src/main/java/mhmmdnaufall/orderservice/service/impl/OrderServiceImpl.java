@@ -1,6 +1,7 @@
 package mhmmdnaufall.orderservice.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import mhmmdnaufall.orderservice.dto.InventoryResponse;
 import mhmmdnaufall.orderservice.dto.OrderLineItemDto;
 import mhmmdnaufall.orderservice.dto.OrderRequest;
 import mhmmdnaufall.orderservice.entity.Order;
@@ -9,7 +10,10 @@ import mhmmdnaufall.orderservice.repository.OrderRepository;
 import mhmmdnaufall.orderservice.service.OrderService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClient;
 
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -18,6 +22,8 @@ import java.util.function.Function;
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
+
+    private final RestClient restClient;
 
     @Transactional
     @Override
@@ -32,7 +38,26 @@ public class OrderServiceImpl implements OrderService {
         orderLineItemList.forEach(orderLineItem -> orderLineItem.setOrder(order));
 
         order.setOrderLineItemList(orderLineItemList);
-        orderRepository.save(order);
+
+        final var skuCodes = order.getOrderLineItemList().stream()
+                .map(OrderLineItem::getSkuCode)
+                .toList();
+
+        // Call Inventory Service, and place order if product is in stock
+        final var inventoryResponseArray = restClient.get()
+                .uri(
+                        "http://localhost:8083/api/inventory",
+                        uriBuilder -> uriBuilder.queryParam("skuCode", skuCodes).build()
+                )
+                .retrieve()
+                .body(InventoryResponse[].class);
+
+        final var allProductsInStock = Arrays.stream(Objects.requireNonNull(inventoryResponseArray))
+                .allMatch(InventoryResponse::isInStock);
+
+        if (allProductsInStock) orderRepository.save(order);
+        else throw new IllegalArgumentException("Product is not in stock, please try again later");
+
     }
 
     private final Function<OrderLineItemDto, OrderLineItem> mapToDto = dto ->
