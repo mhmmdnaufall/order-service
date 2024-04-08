@@ -26,7 +26,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Transactional
     @Override
-    public void placeOrder(OrderRequest request) {
+    public String placeOrder(OrderRequest request) {
         final var order = new Order();
         order.setOrderNumber(UUID.randomUUID().toString());
 
@@ -57,7 +57,7 @@ public class OrderServiceImpl implements OrderService {
 
             if (allProductsInStock) {
                 orderRepository.save(order);
-                return;
+                return "Order Placed Successfully";
             }
         }
 
