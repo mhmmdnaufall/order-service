@@ -1,5 +1,7 @@
 package mhmmdnaufall.orderservice.service.impl;
 
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import lombok.RequiredArgsConstructor;
 import mhmmdnaufall.orderservice.dto.InventoryResponse;
 import mhmmdnaufall.orderservice.dto.OrderLineItemDto;
@@ -24,6 +26,8 @@ public class OrderServiceImpl implements OrderService {
 
     private final RestClient.Builder restClientBuilder;
 
+    private final ObservationRegistry observationRegistry;
+
     @Transactional
     @Override
     public String placeOrder(OrderRequest request) {
@@ -43,25 +47,30 @@ public class OrderServiceImpl implements OrderService {
                 .toList();
 
         // Call Inventory Service, and place order if product is in stock
-        final var inventoryResponseArray = restClientBuilder.build().get()
-                .uri(
-                        "http://inventory-service/api/inventory",
-                        uriBuilder -> uriBuilder.queryParam("skuCode", skuCodes).build()
-                )
-                .retrieve()
-                .body(InventoryResponse[].class);
+        final var inventoryServiceObservation = Observation.createNotStarted(
+                "inventory-service-lookup", observationRegistry
+        );
+        inventoryServiceObservation.lowCardinalityKeyValue("call", "inventory-service");
+        return inventoryServiceObservation.observe(() -> {
+            final var inventoryResponseArray = restClientBuilder.build().get()
+                    .uri(
+                            "http://inventory-service/api/inventory",
+                            uriBuilder -> uriBuilder.queryParam("skuCode", skuCodes).build()
+                    )
+                    .retrieve()
+                    .body(InventoryResponse[].class);
 
-        if (inventoryResponseArray != null && inventoryResponseArray.length > 0) {
-            final var allProductsInStock = Arrays.stream(inventoryResponseArray)
-                    .allMatch(InventoryResponse::isInStock);
+            if (inventoryResponseArray != null && inventoryResponseArray.length > 0) {
+                final var allProductsInStock = Arrays.stream(inventoryResponseArray)
+                        .allMatch(InventoryResponse::isInStock);
 
-            if (allProductsInStock) {
-                orderRepository.save(order);
-                return "Order Placed Successfully";
+                if (allProductsInStock) {
+                    orderRepository.save(order);
+                    return "Order Placed Successfully";
+                }
             }
-        }
-
-        throw new IllegalArgumentException("Product is not in stock, please try again later");
+            throw new IllegalArgumentException("Product is not in stock, please try again later");
+        });
 
     }
 
