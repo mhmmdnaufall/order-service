@@ -8,8 +8,10 @@ import mhmmdnaufall.orderservice.dto.OrderLineItemDto;
 import mhmmdnaufall.orderservice.dto.OrderRequest;
 import mhmmdnaufall.orderservice.entity.Order;
 import mhmmdnaufall.orderservice.entity.OrderLineItem;
+import mhmmdnaufall.orderservice.event.OrderPlacedEvent;
 import mhmmdnaufall.orderservice.repository.OrderRepository;
 import mhmmdnaufall.orderservice.service.OrderService;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
@@ -27,6 +29,8 @@ public class OrderServiceImpl implements OrderService {
     private final RestClient.Builder restClientBuilder;
 
     private final ObservationRegistry observationRegistry;
+
+    private final KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate;
 
     @Transactional
     @Override
@@ -66,6 +70,9 @@ public class OrderServiceImpl implements OrderService {
 
                 if (allProductsInStock) {
                     orderRepository.save(order);
+
+                    // send order place event to kafka
+                    kafkaTemplate.send("notificationTopic", new OrderPlacedEvent(order.getOrderNumber()));
                     return "Order Placed Successfully";
                 }
             }

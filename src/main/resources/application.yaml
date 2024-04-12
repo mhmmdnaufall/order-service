@@ -11,6 +11,17 @@ spring:
   jpa:
     open-in-view: true
 
+# Kafka Properties
+  kafka:
+    bootstrap-servers: localhost:9092
+    template:
+      default-topic: notificationTopic
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.type.mapping: event:mhmmdnaufall.orderservice.event.OrderPlacedEvent
+
 server:
   port: 8082
 
