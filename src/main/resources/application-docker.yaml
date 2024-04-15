@@ -1,0 +1,17 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://mysql:3306/order_service
+
+management:
+  zipkin:
+    tracing:
+      endpoint: http://zipkin-microservice:9411
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka:password@discovery-server:8761/eureka
